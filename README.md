@@ -112,6 +112,19 @@ Empfehlung:
 
 [Octopus Intelligent Go mit EVCC](https://github.com/ha-puzzles/homeassistant-puzzlepieces/blob/main/use-cases/stromtarife/octopus-intelligent-go/README.md)
 
+### Community Dashboard Example
+
+[HWE70](https://github.com/HWE70) has shared a Lovelace dashboard example for
+the Intelligent Go sensors in [Discussion #103](https://github.com/thecem/octopus_germany/discussions/103).
+It combines tariff and balance information, dispatch windows, vehicle SoC and
+target, charging preference, plugged status, meter identifiers, and charts for
+dispatch history and charging sessions.
+
+The dashboard requires the HACS frontend card
+[`custom:apexcharts-card`](https://github.com/RomRider/apexcharts-card). Before
+using the example, replace `a_xxxxxxxx` with your lower-case account number and
+`your_vehicle` with the vehicle slug from your entity IDs.
+
 ## Debugging
 
 If you encounter issues, you can enable debug logging by adding the following to your `configuration.yaml`:
