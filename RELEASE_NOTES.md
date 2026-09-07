@@ -1,5 +1,13 @@
 # Release Notes
 
+## Version 0.0.120 (2026-09-07)
+
+### Fixes
+
+- Fixed the price sensor startup failure caused by the local-time refactor missing the UTC forecast clock.
+- Fixed JWT expiry checks to use timezone-independent POSIX time.
+- Updated smart-charging session sensors from current coordinator data instead of a load-time snapshot.
+
 ## Version 0.0.119 (2026-09-07)
 
 ### Fixes

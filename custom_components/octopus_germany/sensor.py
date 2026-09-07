@@ -2560,18 +2560,27 @@ class OctopusElectricitySmartMeterReadingsSensor(
 
 
 class OctopusSmartChargingSessionsSensor(CoordinatorEntity, SensorEntity):
+    def _get_sessions(self) -> list[dict[str, Any]]:
+        """Return the latest sessions for this device from coordinator data."""
+        if not self.coordinator or not isinstance(self.coordinator.data, dict):
+            return []
+        account_data = self.coordinator.data.get(self._account_number, {})
+        return [
+            session
+            for session in account_data.get("charging_sessions", []) or []
+            if session.get("device_id") == self._device_id
+            or session.get("device_name") == self._device_name
+        ]
+
     @property
     def extra_state_attributes(self) -> dict:
         """Return the attributes for the smart charging sessions sensor."""
-        # Use cached attributes if available, otherwise recompute
-        if self._cached_attributes:
-            return self._cached_attributes
-        # Fallback: recompute attributes (should rarely happen)
         from datetime import datetime, timedelta
 
+        sessions = self._get_sessions()
         current_month = datetime.now().strftime("%Y-%m")
         smart_sessions_sorted = sorted(
-            self._sessions,
+            sessions,
             key=lambda s: s.get("start") or "",
             reverse=True,
         )
@@ -2637,7 +2646,6 @@ class OctopusSmartChargingSessionsSensor(CoordinatorEntity, SensorEntity):
             "current_month_qualified": current_month_qualified,
             "recent_sessions": sessions_list,
         }
-        self._cached_attributes = attributes
         return attributes
 
     def __init__(
@@ -2689,20 +2697,19 @@ class OctopusSmartChargingSessionsSensor(CoordinatorEntity, SensorEntity):
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_has_entity_name = False
 
-        # Sessions für dieses Device
+        # Keep the initial argument for compatibility; live data comes from the coordinator.
         self._sessions = sessions or []
-        self._cached_value = 0
-        self._cached_attributes = {}
 
     @property
     def native_value(self) -> int:
         """Return the count of smart charging sessions in the current month for this device."""
         from datetime import datetime
 
+        sessions = self._get_sessions()
         current_month = datetime.now().strftime("%Y-%m")
         # Sort sessions by start date descending (most recent first)
         smart_sessions_sorted = sorted(
-            self._sessions,
+            sessions,
             key=lambda s: s.get("start") or "",
             reverse=True,
         )

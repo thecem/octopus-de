@@ -50,8 +50,12 @@ from custom_components.octopus_germany.octopus_germany import (
     INTELLIGENT_DATA_QUERY,
     OctopusGermany,
     SmartMeterFetchError,
+    TokenManager,
 )
-from custom_components.octopus_germany.sensor import _create_device_entities
+from custom_components.octopus_germany.sensor import (
+    OctopusSmartChargingSessionsSensor,
+    _create_device_entities,
+)
 from custom_components.octopus_germany.services import (
     async_handle_refresh_intelligent_data,
     async_request_intelligent_refresh,
@@ -230,6 +234,53 @@ class TariffCapabilitiesTest(unittest.TestCase):
         )
 
         self.assertEqual(rate, 0.2)
+
+    def test_forecast_rate_path_keeps_utc_clock_available(self) -> None:
+        rate = get_current_forecast_rate(
+            {
+                "unitRateForecast": [
+                    {
+                        "validFrom": "2026-01-01T00:00:00+00:00",
+                        "validTo": "2026-01-01T01:00:00+00:00",
+                        "unitRateInformation": {"latestGrossUnitRateCentsPerKwh": "20"},
+                    }
+                ]
+            },
+            datetime.fromisoformat("2026-01-01T00:30:00+00:00"),
+        )
+
+        self.assertEqual(rate, 0.2)
+
+    def test_token_validity_uses_epoch_safe_utc_time(self) -> None:
+        manager = TokenManager()
+        manager.set_token("test-token", datetime.now(UTC).timestamp() + 3600)
+
+        self.assertTrue(manager.is_valid)
+
+    def test_charging_sessions_sensor_reads_updated_coordinator_data(self) -> None:
+        start = datetime.now(UTC).replace(day=1, hour=12, minute=0, second=0)
+        session = {
+            "device_id": "device-1",
+            "device_name": "Car",
+            "start": start.isoformat(),
+            "energyAdded": {"value": "5.5"},
+        }
+        coordinator = Mock()
+        coordinator.data = {
+            "account-1": {"charging_sessions": [session]},
+        }
+        coordinator.last_update_success = True
+        sensor = OctopusSmartChargingSessionsSensor(
+            "account-1", coordinator, "Car", "device-1", []
+        )
+
+        self.assertEqual(sensor.native_value, 1)
+        self.assertEqual(sensor.extra_state_attributes["smart_sessions_count"], 1)
+
+        coordinator.data["account-1"]["charging_sessions"] = []
+
+        self.assertEqual(sensor.native_value, 0)
+        self.assertEqual(sensor.extra_state_attributes["smart_sessions_count"], 0)
 
     def test_format_uk_rates_preserves_card_compatibility_shape(self) -> None:
         rates = format_uk_rates(

@@ -934,7 +934,7 @@ class TokenManager:
         if not self._token or not self._expiry:
             return False
 
-        now = datetime.utcnow().timestamp()
+        now = datetime.now(UTC).timestamp()
 
         # Token is valid if it has at least TOKEN_REFRESH_MARGIN seconds left before expiry
         valid = now < (self._expiry - TOKEN_REFRESH_MARGIN)
@@ -955,7 +955,7 @@ class TokenManager:
         if expiry:
             # Use expiry directly if provided
             self._expiry = expiry
-            now = datetime.utcnow().timestamp()
+            now = datetime.now(UTC).timestamp()
             token_lifetime = self._expiry - now if self._expiry else 0
             _LOGGER.debug(
                 "Token set with explicit expiry - valid for %s seconds",
@@ -966,7 +966,7 @@ class TokenManager:
             try:
                 decoded = jwt.decode(token, options={"verify_signature": False})
                 self._expiry = decoded.get("exp")
-                now = datetime.utcnow().timestamp()
+                now = datetime.now(UTC).timestamp()
                 token_lifetime = self._expiry - now if self._expiry else 0
                 _LOGGER.debug(
                     "Token set with decoded expiry - valid for %s seconds",
@@ -974,7 +974,7 @@ class TokenManager:
                 )
             except Exception as e:
                 # Fallback: If token decoding fails, set expiry to TOKEN_AUTO_REFRESH_INTERVAL from now
-                now = datetime.utcnow().timestamp()
+                now = datetime.now(UTC).timestamp()
                 self._expiry = now + TOKEN_AUTO_REFRESH_INTERVAL
                 _LOGGER.warning(
                     "Failed to decode token expiry: %s. Setting fallback expiry to %s minutes",

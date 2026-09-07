@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import UTC, datetime, time
 from typing import Any
 
 from homeassistant.util.dt import now as local_now
