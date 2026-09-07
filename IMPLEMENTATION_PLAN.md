@@ -9,6 +9,10 @@ Ziel ist eine ressourcenschonende, tarifabhaengige Home-Assistant-Integration fu
 - [x] #95: Polling-Defaults, konfigurierbare Intervalle und reduzierte Smart-Meter-Abfragen umsetzen.
 - [x] #96: Terminale Account-Status filtern und aktiven Strom-Account bevorzugen.
 - [x] #97: Smart-Meter-Serverfehler von leeren Ergebnissen unterscheiden und drei Stunden Backoff verwenden.
+- [x] #104: Time-of-Use-Zeitfenster in der konfigurierten Home-Assistant-Zeitzone auswerten; Forecast-Zeitstempel bleiben absolute Instants.
+- [x] #105: JWT-Epochenzeit korrekt vergleichen und automatischen Token-Refresh nach transienten Fehlern weiterlaufen lassen.
+- [x] #106: Smart-Charging-Sessions aus aktuellen Coordinator-Daten lesen, nicht aus einem Ladezeit-Snapshot oder Attribut-Cache.
+- [x] #107: Produktgueltigkeit als geparste, timezone-aware Zeitpunkte vergleichen, nicht als ISO-Strings.
 - [ ] PR #90: Upstream-Pull-Request bleibt offen, bis der lokale Stand als Commit/PR veroeffentlicht und dort geprueft wurde.
 
 ## Leitlinien
@@ -21,6 +25,12 @@ Ziel ist eine ressourcenschonende, tarifabhaengige Home-Assistant-Integration fu
 - Fuer Architektur und Refresh-Verhalten die Integration von BottlecapDave als Referenz pruefen.
 - Mutationen oder manuelle Aktionen nach Moeglichkeit mit einem gezielten Refresh bestaetigen.
 - Keine echten Account-Daten, Tokens oder persoenliche Logs in Tests und Dokumentation verwenden.
+- Zeitpunkte nie als Strings vergleichen. API-Zeitstempel werden zentral geparst, auf UTC normalisiert und erst danach verglichen.
+- API-Wandzeit und lokale Tarifzeit strikt unterscheiden: Forecast-/Dispatch-Zeitstempel sind absolute Instants; `activeFromTime`/`activeToTime` von Time-of-Use-Regeln sind lokale Wandzeit.
+- Epoch-Werte nur mit timezone-sicherer UTC-Zeit erzeugen, z. B. `datetime.now(UTC).timestamp()`; kein `datetime.utcnow().timestamp()`.
+- Hintergrundaufgaben muessen transiente Netzwerkfehler innerhalb der Schleife behandeln. Ein einzelner 502/Timeout darf keinen dauerhaften Task-Tod verursachen.
+- Entities duerfen keine unveraenderlichen API-Snapshots oder dauerhaft gecachten Attribute als Datenquelle verwenden. Dynamische Werte kommen aus dem Coordinator.
+- Jede Aenderung an API-, Zeit-, Cache- oder Coordinator-Logik braucht einen Unit-Test und einen echten Home-Assistant-Startup-Test.
 
 ## Zielarchitektur bei einem Neustart
 
@@ -39,6 +49,13 @@ custom_components/octopus_germany/
 ```
 
 - [ ] API-Kommunikation, Datenmodelle, Tariflogik, Coordinator und Entities voneinander trennen.
+- [ ] Architektur wie im Referenzprojekt [octopus_energy_de](https://github.com/thecem/octopus_energy_de) in fachliche Module zerlegen; Queries und API-Transport duerfen nicht in Entity-Dateien liegen.
+- [ ] `octopus_germany.py` schrittweise in `api/auth.py`, `api/queries.py` und fachliche API-Methoden aufteilen; das Modul soll keine Entity- oder Normalisierungslogik enthalten.
+- [ ] `__init__.py` auf Config-Entry-Lifecycle, Coordinator-Erzeugung und Service-Registrierung begrenzen; Datenverarbeitung in eigene Module verschieben.
+- [ ] `sensor.py`, `binary_sensor.py` und `switch.py` auf Entity-Lifecycle und Darstellung begrenzen; keine GraphQL-Abfragen, Produktselektion oder komplexe Normalisierung dort implementieren.
+- [ ] Gemeinsame Zeit-, Produkt- und Tarifregeln in `tariff.py`/`time_utils.py` zentralisieren; keine parallelen privaten Implementierungen in Entity-Klassen.
+- [ ] Pro Modul eine klare Eingabe-/Ausgabegrenze definieren und zyklische Abhängigkeiten vermeiden. Entity-Module duerfen nur Modelle, Coordinator-Daten und kleine Formatter importieren.
+- [ ] Zielgroessen festlegen: kein neues fachliches Verhalten in Dateien ueber 1.000 Zeilen; `octopus_germany.py`, `__init__.py` und `sensor.py` in jeweils testbare Teilmodule unter 500-800 Zeilen zerlegen.
 - [x] Einen kleinen Initial-Query fuer Account, Agreements und Tarifmerkmale definieren.
 - [x] Aus den Tarifdaten explizite Faehigkeiten ableiten, z. B. `has_dynamic_prices`, `has_intelligent_dispatches` und `has_smart_meter`.
 - [x] Tarif-Faehigkeiten aus echten API-Daten bestimmen und nicht pauschal annehmen.
@@ -48,6 +65,15 @@ custom_components/octopus_germany/
 - [ ] Als erste Zielversion nur schreibgeschuetzte Sensoren betreiben; Schalter und Nummern-Entities nicht voraussetzen.
 - [x] Bestehende `unique_id`-Werte als Kompatibilitaetsvertrag behandeln.
 - [x] Fuer neue geraetebezogene IDs die stabile OEG-`device.id` verwenden; bestehende Anzeigenamen-IDs bleiben ohne destruktive Migration erhalten.
+
+### Architektur-Abnahmekriterien
+
+- [ ] Ein API-Fehler kann ohne Home-Assistant-Entity-Test reproduziert werden, indem nur eine API-Methode mit einer anonymisierten Antwort getestet wird.
+- [ ] Eine Tarifregel kann ohne Sensorinstanz getestet werden: Produktzeitpunkt, lokale Time-of-Use-Zeit und Forecast-Zeit werden jeweils mit festen Testzeiten geprueft.
+- [ ] Ein Coordinator-Update aendert den Entity-Wert ohne Entity-Neuerzeugung oder Integration-Reload.
+- [ ] Ein einmaliger Auth-/API-Fehler beendet keinen Hintergrundtask dauerhaft; der Test weist mindestens einen Folgeversuch nach.
+- [ ] Ein Home-Assistant-Startup mit dem vorhandenen Task `Start Home Assistant (port 8123)` endet ohne Fehler aus `custom_components.octopus_germany` und liefert HTTP 200.
+- [ ] Vor jedem Release werden Unit-Tests, Syntaxpruefung, `git diff --check` und ein echter HA-Startup ausgefuehrt; Logs werden auf `NameError`, Entity-Setup-Fehler, Listener-Fehler und unerwartete Produkt-/Tarifwarnungen geprueft.
 
 ## Phase 0: Bestand und offene Issues
 
@@ -73,7 +99,11 @@ custom_components/octopus_germany/
 
 - [ ] API-Client in eine zentrale Request-Methode und fachliche Query-Methoden aufteilen.
 - [ ] Die bisherige grosse Sammelabfrage in fachliche Query-Bausteine zerlegen.
+- [ ] Query-Konstanten aus `octopus_germany.py` nach `queries.py` verschieben; jede Query bekommt einen anonymisierten Antwort-Fixture-Test.
+- [ ] Login/Token-Management von GraphQL-Abfragen trennen; Token-Refresh-Retry und Backoff als eigene testbare Komponente behandeln.
 - [ ] Produkt-/Tarif-Normalisierung vollstaendig aus `process_api_data` auslagern.
+- [ ] Strom-/Gas-Produktselektion und `is_product_current()` in eine gemeinsame Tarif-/Produktlogik verschieben; vier duplizierte Sensor-/Setup-Pfade entfernen.
+- [ ] Zeitkontrakte dokumentieren und testen: `validFrom`/`validTo` und Forecasts als Instant, TOU-Aktivierungsregeln als lokale Wandzeit.
 - [x] Direkte Produktdaten in eine testbare Normalisierungsfunktion auslagern.
 - [x] Gemeinsame Gross-Rate- und Time-of-Use-Slot-Normalisierung fuer Strom und Gas einfuehren.
 - [x] Gross-Rate-Fallbacks in Simple-Agreement-Produkten zentralisieren.
@@ -112,6 +142,9 @@ custom_components/octopus_germany/
 - [x] Nach Tarif-Erkennung nur die benoetigten Coordinators starten.
 - [x] Bei nicht verfuegbarem Intelligent-Tarif keine Dispatch-, Fahrzeug- oder Intelligent-Schalter-Entities erzeugen.
 - [x] Verhalten bei Tarifwechsel oder erneuter Einrichtung festlegen: Capability-Cache wird bei einem erneuten Config-Entry-Setup neu aufgebaut.
+- [ ] Coordinator-Datenvertrag als typisierte Struktur statt losem verschachteltem Dictionary definieren oder schrittweise mit TypedDicts absichern.
+- [ ] Session-, Dispatch- und Geraete-Entities ausschliesslich aus dem aktuellen Coordinator-Datenvertrag lesen; keine Initial-Snapshots als dauerhafte Quelle zulassen.
+- [ ] Automatische Refresh-Tasks mit kontrollierter Cancellation, Retry und sichtbarem Fehlerstatus versehen.
 
 ## Phase 4: On-Demand-Refresh und Services
 
@@ -146,6 +179,7 @@ custom_components/octopus_germany/
 - [x] Release Notes und Manifest-Version nur zusammen mit einer tatsaechlichen Funktionaenderung aktualisieren.
 - [x] Changelog-Eintrag fuer neue Services und Polling-Optionen verfassen.
 - [x] Offene GitHub-Issues #92, #94, #95, #96 und #97 gegen den lokalen Stand pruefen und die behobenen Punkte dokumentieren.
+- [x] Offene GitHub-Issues #104 bis #107 analysieren; die daraus entstandenen Zeit-, Token-, Entity- und Produktvalidierungsregeln oben dokumentieren.
 
 ## Verifikation pro Umsetzungsschritt
 
@@ -160,6 +194,8 @@ custom_components/octopus_germany/
 - [x] Home Assistant mit Standard-Tarif-Fixtures auf unerlaubte Intelligent-Queries pruefen.
 - [x] Home Assistant mit dem eingerichteten Intelligent-/Time-of-Use-Account starten und Dispatch-/Entity-Erzeugung pruefen.
 - [x] Entity-Namen und Entity-IDs gegen [ENTITY_COMPATIBILITY.md](ENTITY_COMPATIBILITY.md) pruefen.
+- [ ] Den vorhandenen Home-Assistant-Task vor Abschluss jeder API-/Coordinator-Aenderung ausfuehren und den Integration-Log gezielt auf neue Fehler pruefen.
+- [ ] Fuer jeden Bugfix mindestens einen Test gegen den vorherigen Fehlermechanismus schreiben, nicht nur gegen das erwartete Endergebnis.
 
 ## Offene Entscheidungen
 

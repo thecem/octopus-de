@@ -1,5 +1,12 @@
 # Release Notes
 
+## Version 0.0.121 (2026-09-07)
+
+### Fixes
+
+- Compare product validity timestamps as timezone-aware instants instead of ISO strings.
+- Keep scheduled JWT refreshes alive after transient refresh failures.
+
 ## Version 0.0.120 (2026-09-07)
 
 ### Fixes

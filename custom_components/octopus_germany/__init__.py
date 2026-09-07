@@ -49,6 +49,7 @@ from .services import (
     async_handle_refresh_intelligent_data,
     async_request_intelligent_refresh,
 )
+from .tariff import is_product_current
 
 try:
     from homeassistant.components.recorder import get_instance
@@ -595,7 +596,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         if gas_products:
             # Find current valid gas product based on validity dates
-            now = datetime.now(UTC).isoformat()
             valid_gas_products = []
 
             for product in gas_products:
@@ -605,7 +605,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if not valid_from:
                     continue
 
-                if valid_from <= now and (not valid_to or now <= valid_to):
+                if is_product_current(product):
                     valid_gas_products.append(product)
 
             if valid_gas_products:

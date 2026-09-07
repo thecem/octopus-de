@@ -65,6 +65,7 @@ from custom_components.octopus_germany.tariff import (
     format_uk_rates,
     get_active_timeslot_rate,
     get_current_forecast_rate,
+    is_product_current,
     parse_tariff_time,
 )
 
@@ -199,6 +200,25 @@ class TariffCapabilitiesTest(unittest.TestCase):
             0.1,
         )
 
+    def test_product_validity_compares_instants_not_iso_strings(self) -> None:
+        product = {
+            "validFrom": "2026-09-07T00:00:00+00:00",
+            "validTo": "2026-09-07T22:00:00+00:00",
+        }
+
+        self.assertTrue(
+            is_product_current(
+                product,
+                datetime.fromisoformat("2026-09-07T21:00:00+00:00"),
+            )
+        )
+        self.assertFalse(
+            is_product_current(
+                product,
+                datetime.fromisoformat("2026-09-07T23:00:00+00:00"),
+            )
+        )
+
     def test_timeslot_default_uses_home_assistant_local_time(self) -> None:
         local_time = datetime.fromisoformat("2026-07-01T02:30:00+02:00")
         product = {
@@ -256,6 +276,19 @@ class TariffCapabilitiesTest(unittest.TestCase):
         manager.set_token("test-token", datetime.now(UTC).timestamp() + 3600)
 
         self.assertTrue(manager.is_valid)
+
+    def test_token_refresh_retries_after_transient_failure(self) -> None:
+        manager = TokenManager()
+        refresh = AsyncMock(side_effect=RuntimeError("temporary failure"))
+        manager.set_refresh_callback(refresh)
+
+        with patch(
+            "custom_components.octopus_germany.octopus_germany.asyncio.sleep",
+            new=AsyncMock(side_effect=[None, asyncio.CancelledError()]),
+        ):
+            asyncio.run(manager._auto_refresh_token())
+
+        refresh.assert_awaited_once_with()
 
     def test_charging_sessions_sensor_reads_updated_coordinator_data(self) -> None:
         start = datetime.now(UTC).replace(day=1, hour=12, minute=0, second=0)

@@ -912,20 +912,22 @@ class TokenManager:
                 await asyncio.sleep(TOKEN_AUTO_REFRESH_INTERVAL)
 
                 _LOGGER.info("Performing scheduled token refresh")
-
-                if self._refresh_callback is not None:
-                    # Force token refresh by temporarily invalidating the token expiry
-                    self._expiry = 0  # Set to expired
-                    await self._refresh_callback()
-                    _LOGGER.debug("Scheduled token refresh completed")
-                else:
+                try:
+                    if self._refresh_callback is not None:
+                        # Force token refresh by temporarily invalidating the token expiry
+                        self._expiry = 0
+                        await self._refresh_callback()
+                        _LOGGER.debug("Scheduled token refresh completed")
+                    else:
+                        _LOGGER.warning(
+                            "No refresh callback set, cannot auto-refresh token"
+                        )
+                except Exception as err:
                     _LOGGER.warning(
-                        "No refresh callback set, cannot auto-refresh token"
+                        "Scheduled token refresh failed; will retry: %s", err
                     )
         except asyncio.CancelledError:
             _LOGGER.debug("Token auto-refresh task cancelled")
-        except Exception as e:
-            _LOGGER.error("Error in token auto-refresh task: %s", e)
 
     @property
     def is_valid(self):

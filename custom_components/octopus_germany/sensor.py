@@ -40,6 +40,7 @@ from .tariff import (
     format_uk_rates,
     get_active_timeslot_rate,
     get_current_forecast_rate,
+    is_product_current,
     is_time_between,
     parse_tariff_time,
 )
@@ -511,7 +512,6 @@ class OctopusElectricityPriceSensor(CoordinatorEntity, SensorEntity):
             return None
 
         # Find the current valid product based on validity dates
-        now = datetime.now().isoformat()
         valid_products = []
 
         # First filter products that are currently valid
@@ -524,7 +524,7 @@ class OctopusElectricityPriceSensor(CoordinatorEntity, SensorEntity):
                 continue
 
             # Check if product is currently valid
-            if valid_from <= now and (not valid_to or now <= valid_to):
+            if is_product_current(product):
                 valid_products.append(product)
 
         # If we have valid products, use the one with the latest validFrom
@@ -649,7 +649,6 @@ class OctopusElectricityPriceSensor(CoordinatorEntity, SensorEntity):
             return
 
         # Find the current valid product based on validity dates
-        now = datetime.now().isoformat()
         valid_products = []
 
         # First filter products that are currently valid
@@ -662,7 +661,7 @@ class OctopusElectricityPriceSensor(CoordinatorEntity, SensorEntity):
                 continue
 
             # Check if product is currently valid
-            if valid_from <= now and (not valid_to or now <= valid_to):
+            if is_product_current(product):
                 valid_products.append(product)
 
         # If we have valid products, use the one with the latest validFrom
@@ -1076,7 +1075,6 @@ class OctopusGasTariffSensor(CoordinatorEntity, SensorEntity):
             return None
 
         # Find the current valid product based on validity dates
-        now = datetime.now().isoformat()
         valid_products = []
 
         # First filter products that are currently valid
@@ -1089,7 +1087,7 @@ class OctopusGasTariffSensor(CoordinatorEntity, SensorEntity):
                 continue
 
             # Check if product is currently valid
-            if valid_from <= now and (not valid_to or now <= valid_to):
+            if is_product_current(product):
                 valid_products.append(product)
 
         # If we have valid products, use the one with the latest validFrom
@@ -1143,7 +1141,6 @@ class OctopusGasTariffSensor(CoordinatorEntity, SensorEntity):
             return
 
         # Find the current valid product based on validity dates
-        now = datetime.now().isoformat()
         valid_products = []
 
         # First filter products that are currently valid
@@ -1156,7 +1153,7 @@ class OctopusGasTariffSensor(CoordinatorEntity, SensorEntity):
                 continue
 
             # Check if product is currently valid
-            if valid_from <= now and (not valid_to or now <= valid_to):
+            if is_product_current(product):
                 valid_products.append(product)
 
         # If we have valid products, use the one with the latest validFrom
@@ -2804,7 +2801,6 @@ class OctopusSmartChargingSessionsSensor(CoordinatorEntity, SensorEntity):
             "current_month_qualified": current_month_qualified,
             "recent_sessions": sessions_list,
         }
-        self._cached_attributes = attributes
         return attributes
 
     @property

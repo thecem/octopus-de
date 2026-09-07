@@ -8,6 +8,34 @@ from typing import Any
 from homeassistant.util.dt import now as local_now
 
 
+def parse_product_datetime(value: str | None) -> datetime | None:
+    """Parse an API product timestamp into an aware UTC datetime."""
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except TypeError, ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def is_product_current(
+    product: dict[str, Any], current_time: datetime | None = None
+) -> bool:
+    """Return whether a product is valid at the supplied instant."""
+    valid_from = parse_product_datetime(product.get("validFrom"))
+    valid_to = parse_product_datetime(product.get("validTo"))
+    if valid_from is None:
+        return False
+    current_time = current_time or datetime.now(UTC)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=UTC)
+    current_time = current_time.astimezone(UTC)
+    return valid_from <= current_time and (valid_to is None or current_time <= valid_to)
+
+
 def parse_tariff_time(value: str) -> time | None:
     """Parse an HH:MM:SS tariff time."""
     try:
