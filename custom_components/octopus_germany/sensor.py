@@ -27,6 +27,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util.dt import now as local_now
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -408,7 +409,7 @@ class OctopusElectricityPriceSensor(CoordinatorEntity, SensorEntity):
 
         # For TimeOfUseProductUnitRateInformation, find the currently active timeslot
         if product.get("type") == "TimeOfUse" and "timeslots" in product:
-            current_time = datetime.now().time()
+            current_time = local_now().time()
 
             for timeslot in product["timeslots"]:
                 for rule in timeslot.get("activation_rules", []):
@@ -690,7 +691,7 @@ class OctopusElectricityPriceSensor(CoordinatorEntity, SensorEntity):
                 current_product.get("type") == "TimeOfUse"
                 and "timeslots" in current_product
             ):
-                current_time = datetime.now().time()
+                current_time = local_now().time()
                 active_timeslot = None
                 timeslots_data = []
 

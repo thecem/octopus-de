@@ -3,7 +3,7 @@
 import asyncio
 import unittest
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import voluptuous as vol
 
@@ -194,6 +194,26 @@ class TariffCapabilitiesTest(unittest.TestCase):
             ),
             0.1,
         )
+
+    def test_timeslot_default_uses_home_assistant_local_time(self) -> None:
+        local_time = datetime.fromisoformat("2026-07-01T02:30:00+02:00")
+        product = {
+            "type": "TimeOfUse",
+            "timeslots": [
+                {
+                    "rate": "10",
+                    "activation_rules": [
+                        {"from_time": "02:00:00", "to_time": "05:00:00"}
+                    ],
+                }
+            ],
+        }
+
+        with patch(
+            "custom_components.octopus_germany.tariff.local_now",
+            return_value=local_time,
+        ):
+            self.assertEqual(get_active_timeslot_rate(product), 0.1)
 
     def test_tariff_helper_reads_current_forecast_rate(self) -> None:
         rate = get_current_forecast_rate(

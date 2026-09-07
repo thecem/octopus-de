@@ -1,5 +1,12 @@
 # Release Notes
 
+## Version 0.0.119 (2026-09-07)
+
+### Fixes
+
+- Evaluated local Time-of-Use tariff windows using Home Assistant's configured timezone instead of UTC.
+- Fixed active tariff slot attributes during daylight-saving time.
+
 ## Version 0.0.118 (2026-09-05)
 
 ### Fixes

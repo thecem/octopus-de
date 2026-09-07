@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, time
+from datetime import datetime, time
 from typing import Any
+
+from homeassistant.util.dt import now as local_now
 
 
 def parse_tariff_time(value: str) -> time | None:
@@ -38,7 +40,7 @@ def get_active_timeslot_rate(
     if product.get("type") != "TimeOfUse":
         return None
 
-    current_time = current_time or datetime.now(UTC).time()
+    current_time = current_time or local_now().time()
     for timeslot in product.get("timeslots", []):
         for rule in timeslot.get("activation_rules", []):
             start = parse_tariff_time(rule.get("from_time", "00:00:00"))
